@@ -1,36 +1,37 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+import requests
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# 🔹 Home route
 @app.route('/')
 def home():
     return "🕷️ Welcome to the Web Spider API! Use /crawl?url=your_url to get started."
 
-# 🔹 Crawl route
-@app.route('/crawl', methods=['GET'])
+@app.route('/crawl')
 def crawl():
     url = request.args.get('url')
     if not url:
-        return jsonify({"error": "Missing URL"}), 400
+        return jsonify({'error': 'Missing URL parameter'}), 400
 
     try:
-        response = requests.get(url, timeout=5)
-        soup = BeautifulSoup(response.text, "html.parser")
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        links = [a.get('href') for a in soup.find_all('a', href=True)]
 
-        # Extract and resolve all links
-        links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
-        return jsonify({"links": links})
+        # ✅ Save links to a text file
+        with open('crawled_links.txt', 'a', encoding='utf-8') as file:
+            file.write(f"\nCrawled from: {url}\n")
+            for link in links:
+                file.write(link + '\n')
+            file.write("------\n")
+
+        return jsonify({'url': url, 'links': links})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
-# 🔹 Run the app
 if __name__ == '__main__':
-    print("🚀 Flask server running on http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
